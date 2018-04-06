@@ -3,17 +3,54 @@
 
 # Configuration file for JupyterHub
 import os
+from dockerspawner import DockerSpawner
+import docker
 
 c = get_config()
+
+
+class ImageSelecionSpawner(DockerSpawner):
+    def _options_form_default(self):
+        default_stack = "jupyter/minimal-notebook"
+        str = """
+        <label for="stack">Select your desired stack</label>
+        <select name="stack" size="1">
+        """
+        client = docker.from_env()
+        print(client.images.list())
+        images_names = [image.attrs['RepoTags'][0] for image in client.images.list() if len(image.attrs['RepoTags']) == 1]
+        for name in images_names:
+            str+= """<option value="%s">%s</option>
+            """%(name,name)
+        str += """</select>"""
+        str.format(stack=default_stack)
+        """
+        <label for="stack">Select your desired stack</label>
+        <select name="stack" size="1">
+        <option value="jupyter/minimal-notebook">minimal-notebook </option>
+        <option value="hom3d">hom3d </option>
+        </select>
+        """.format(stack=default_stack)
+        return str
+
+    def options_from_form(self, formdata):
+        options = {}
+        options['stack'] = formdata['stack']
+        container_image = ''.join(formdata['stack'])
+        print("SPAWN: " + container_image + " IMAGE" )
+        self.container_image = container_image
+        return options
+
+c.JupyterHub.spawner_class = ImageSelectionSpawner
 
 # We rely on environment variables to configure JupyterHub so that we
 # avoid having to rebuild the JupyterHub container every time we change a
 # configuration parameter.
 
 # Spawn single-user servers as Docker containers
-c.JupyterHub.spawner_class = 'dockerspawner.DockerSpawner'
+#c.JupyterHub.spawner_class = 'dockerspawner.DockerSpawner'
 # Spawn containers from this image
-c.DockerSpawner.container_image = os.environ['DOCKER_NOTEBOOK_IMAGE']
+#c.DockerSpawner.container_image = os.environ['DOCKER_NOTEBOOK_IMAGE']
 # JupyterHub requires a single-user instance of the Notebook server, so we
 # default to using the `start-singleuser.sh` script included in the
 # jupyter/docker-stacks *-notebook images as the Docker run command when
@@ -45,7 +82,7 @@ c.DockerSpawner.debug = True
 
 # User containers will access hub by container name on the Docker network
 c.JupyterHub.hub_ip = 'jupyterhub'
-c.JupyterHub.hub_port = 8080
+c.JupyterHub.hub_port = 8090
 
 # TLS config
 c.JupyterHub.port = 443
